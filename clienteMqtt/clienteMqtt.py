@@ -52,23 +52,22 @@ async def main():
         logging.info(f"Suscrito a: {topico1} y {topico2}") # debug
 
         asyncio.create_task(incrementar(estado))
-        asyncio.create_task(publicar(client, estado, t_contador))
+        asyncio.create_task(publicar(client, estado, t_contador), name="Publicación")
 
         logging.info("Esperando mensajes") # debug
         async for message in client.messages:
             mensaje = message.payload.decode("utf-8")
             # Derivamos a corrutinas segun el topico
             if message.topic.matches(topico1):
-                asyncio.create_task(atenderTopico1(mensaje), name=f"{topico1}")
+                asyncio.create_task(atenderTopico1(mensaje), name=f"TÓPICO: {topico1}")
             elif message.topic.matches(topico2):
-                asyncio.create_task(atenderTopico2(mensaje), name=f"{topico2}")
+                asyncio.create_task(atenderTopico2(mensaje), name=f"TÓPICO: {topico2}")
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nFIN\n")
-    
+        logging.info("Fin de la comunicación")
         
         

@@ -1,0 +1,4 @@
+aiomqtt==2.5.1
+certifi==2026.4.22
+paho-mqtt==2.1.0
+environs
