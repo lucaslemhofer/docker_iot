@@ -68,6 +68,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("Fin de la comunicación")
+        logging.info("Fin de la comunicación.")
         
         
