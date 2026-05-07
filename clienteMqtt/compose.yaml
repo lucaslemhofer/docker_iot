@@ -1,9 +1,13 @@
 services:
   clientemqtt:
+    build: .
     image: clientemqtt
     container_name: clientemqtt
     environment:
       - TZ=America/Argentina/Buenos_Aires 
       - SERVIDOR=${SERVIDOR} #Se reemplazará por la env var SERVIDOR defineda en .env
-      - TOPICO=${TOPICO}
+      - TOPICO_1=${TOPICO_1}
+      - TOPICO_2=${TOPICO_2}
+      - TOPICO_CONTADOR=${TOPICO_CONTADOR}
+    stop_signal: SIGINT  # indica que docker debe parar solo con ctrl c
     restart: unless-stopped
