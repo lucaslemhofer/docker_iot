@@ -29,7 +29,6 @@ services:
     environment:
       - TZ=America/Argentina/Buenos_Aires 
       - SERVIDOR=${SERVIDOR} #Se reemplazará por la env var SERVIDOR defineda en .env
-      - TOPICO=${TOPICO}
       - MARIADB_SERVER=${MARIADB_SERVER}
       - MARIADB_USER=${MARIADB_USER}
       - MARIADB_USER_PASS=${MARIADB_USER_PASS}
@@ -37,6 +36,7 @@ services:
       - MQTT_USR=${MQTT_USR}
       - MQTT_PASS=${MQTT_PASS}
       - PUERTO_MQTTS=${PUERTO_MQTTS}
+      - DEVICE_ID=${DEVICE_ID}
     restart: unless-stopped
     depends_on:
       - mariadb
@@ -111,6 +111,11 @@ services:
       - MARIADB_USER=${MARIADB_USER}
       - MARIADB_USER_PASS=${MARIADB_USER_PASS}
       - MARIADB_DB=${MARIADB_DB}
+      - SERVIDOR=${SERVIDOR}
+      - PUERTO_MQTTS=${PUERTO_MQTTS}
+      - MQTT_USR=${MQTT_USR}
+      - MQTT_PASS=${MQTT_PASS}
+      - DEVICE_ID=${DEVICE_ID}
     restart: unless-stopped
     depends_on:
       - mariadb
