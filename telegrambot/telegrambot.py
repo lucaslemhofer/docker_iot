@@ -4,6 +4,7 @@ import logging, os, asyncio, aiomysql, traceback, locale, ssl
 import matplotlib.pyplot as plt
 from io import BytesIO
 import aiomqtt
+import json
 
 token = os.environ["TB_TOKEN"]
 
@@ -13,11 +14,18 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # MAC del rpi pasada por variable de entorno, funciona como topico
 DEVICE_ID = os.environ.get("DEVICE_ID")
 
-clienteMqtt = None  # Variable global para almacenar el cliente MQTT activo
+clienteMqtt = None  # Variable global para almacenar el cliente MQTT
+
+estadoPico={
+    "temperatura": None,
+    "humedad": None,
+    "setpoint": None,
+    "modo": None,
+    "periodo": None
+}
 
 async def conexionMqtt():
     global clienteMqtt
-    # Configuración de TLS para MQTTS
     tls_context = ssl.create_default_context()
     
     async with aiomqtt.Client(
@@ -32,19 +40,25 @@ async def conexionMqtt():
             logging.info(f"Bot conectado a MQTTS en {os.environ['SERVIDOR']}:{os.environ['PUERTO_MQTTS']}")
             
             await client.subscribe(DEVICE_ID)
-            
             async for message in client.messages:
-                logging.info(f"Telegram detecta actividad de la pico")
+                payload = message.payload.decode("utf-8")
+                logging.info(f"Mensaje recibido en MQTT -> {message.topic}: {payload}")
+
+                datos = json.loads(payload)
+                estadoPico["temperatura"] = datos.get("temperatura")
+                estadoPico["humedad"] = datos.get("humedad")
+                estadoPico["setpoint"] = datos.get("setpoint")
+                estadoPico["modo"] = datos.get("modo")
+                estadoPico["periodo"] = datos.get("periodo")
 
 # CORRUTINA PARA PUBLICAR EN MQTTS
 async def publicarMqtt(subtopic, msg):
     if clienteMqtt:
         topic = f"{DEVICE_ID}/{subtopic}"
         await clienteMqtt.publish(topic, payload=str(msg))
-        logging.info(f"Comando enviado a MQTT -> {topic}: {msg}")
+        logging.info(f"Comando enviado a MQTT {topic}: {msg}")
         return True
     return False
-
 
 # FUNCIONES DE TELEGRAM
 
@@ -59,11 +73,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         apellido=""
     kb = [["temperatura", "humedad"],["modoAuto", "modoManual"],["destello"]]
-    await context.bot.send_message(update.message.chat.id, text="Bienvenido al Bot "+ nombre + " " + apellido,reply_markup=ReplyKeyboardMarkup(kb))
+    await context.bot.send_message(update.message.chat.id, text="Bienvenido al Bot "+ nombre + " " + apellido,reply_markup=ReplyKeyboardMarkup(kb),read_timeout=10, write_timeout=10)
 
 async def setpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Uso: /setpoint [temperatura]\nEjemplo: /setpoint 25.5")
+        await update.message.reply_text("La temperatura umbral actual es de " + str(estadoPico.get("setpoint")) + "°C.")
     else:
         valor = context.args[0].replace(',', '.')
         await publicarMqtt("setpoint", valor)
@@ -72,6 +87,7 @@ async def setpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def periodo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Uso: /periodo [segundos]\nEjemplo: /periodo 5")
+        await update.message.reply_text("El periodo de medición actual es de " + str(estadoPico.get("periodo")) + " segundos.")
     else:
         valor = context.args[0]
         await publicarMqtt("periodo", valor)
@@ -89,57 +105,64 @@ async def modo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Comando destello enviado a la pico.")
 
 async def releOn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await publicarMqtt("rele", "0") 
-    await update.message.reply_text("Comando Relé ACTIVAR (0) enviado.")
+    if estadoPico.get("modo") != "manual":
+        await update.message.reply_text("Modo actual AUTOMÁTICO. \nCambia al modo manual para controlar el relé.")
+    else:
+        await publicarMqtt("rele", "0") 
+        await update.message.reply_text("Comando Relé ACTIVAR enviado.")
 
 async def releOff(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await publicarMqtt("rele", "1")
-    await update.message.reply_text("Comando Relé DESACTIVAR (1) enviado.")
+    if estadoPico.get("modo") != "manual":
+        await update.message.reply_text("Modo actual AUTOMÁTICO. \nCambia al modo manual para controlar el relé.")
+    else:
+        await publicarMqtt("rele", "1")
+        await update.message.reply_text("Comando Relé DESACTIVAR enviado.")
 
-async def acercade(update: Update, context):
-    await context.bot.send_message(update.message.chat.id, text="Este bot fue creado para el curso de IoT FIO")
+async def info(update: Update, context):
+    await context.bot.send_message(update.message.chat.id, text="Este bot fue creado para el curso de IoT FIO por Lucas Lemhofer")
 
 async def ayuda(update: Update, context):
-    await context.bot.send_message(update.message.chat.id, text="help me")
+    await context.bot.send_message(update.message.chat.id, text="Comandos disponibles:\n/start - Iniciar el bot\n/setpoint [temp] - Cambiar temperatura destino incluyendo como argumento la temperatura solicitada\n/periodo [seg] - Cambiar periodo de medicion inlcuyendo el tiempo de muestreo solicitado\n/destello - Hace parpadear un LED de la pico.\n/estado - Estado actual de las mediciones y configuraciones\n/info - Información del bot\n\nmodoManual - El usuario controla el rele con los comandos.\n/rele_on - Activar rele (modo manual)\n/rele_off - Desactivar rele (modo manual)\n\nmodoAuto - El termostato regula el rele según la temperatura sensada y setpoint.")
 
-async def messi(update: Update, context):
-    if context.args and context.args[0] == ' goat':
-        await context.bot.send_animation(update.message.chat.id, "messisisisisi")
-    else:  
-        await context.bot.send_message(update.message.chat.id, text="🐐")
+async def estado(update: Update, context):
+    estado_texto = (
+        f"Estado actual del termostato:\n"
+        f"Temperatura: {estadoPico.get('temperatura')}°C\n"
+        f"Humedad: {estadoPico.get('humedad')}%\n"
+        f"Setpoint: {estadoPico.get('setpoint')}°C\n"
+        f"Modo: {estadoPico.get('modo')}\n"
+        f"Periodo de medición: {estadoPico.get('periodo')} segundos"
+    )
+    await update.message.reply_text(estado_texto)
 
+    
 async def medicion(update: Update, context):
-    sql = f"SELECT timestamp, {update.message.text} FROM mediciones ORDER BY timestamp DESC LIMIT 1"
-    conn = await aiomysql.connect(host=os.environ["MARIADB_SERVER"], port=3306, user=os.environ["MARIADB_USER"], password=os.environ["MARIADB_USER_PASS"], db=os.environ["MARIADB_DB"])
-    async with conn.cursor() as cur:
-        await cur.execute(sql)
-        r = await cur.fetchone()
-        unidad = 'ºC' if update.message.text == 'temperatura' else '%'
-        await context.bot.send_message(update.message.chat.id, text="La última {} es de {} {},\nregistrada a las {:%H:%M:%S %d/%m/%Y}".format(update.message.text, str(r[1]).replace('.',','), unidad, r[0]))
-    conn.close()
-
-async def graficos(update: Update, context):
-    sql = f"""SELECT timestamp, {update.message.text.split()[1]} FROM (SELECT timestamp, {update.message.text.split()[1]}, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM mediciones WHERE timestamp >= NOW() - INTERVAL 1 DAY AND sensor_id LIKE 'sensor_1') AS t WHERE rn % 2 = 0 ORDER BY timestamp;"""
-    conn = await aiomysql.connect(host=os.environ["MARIADB_SERVER"], port=3306, user=os.environ["MARIADB_USER"], password=os.environ["MARIADB_USER_PASS"], db=os.environ["MARIADB_DB"])
-    async with conn.cursor() as cur:
-        await cur.execute(sql)
-        filas = await cur.fetchall()
-        fig, ax = plt.subplots(figsize=(7, 4))
-        fecha, var = zip(*filas)
-        ax.plot(fecha, var)
-        ax.grid(True, which='both')
-        ax.set_title(update.message.text, fontsize=14, verticalalignment='bottom')
-        buffer = BytesIO()
-        fig.tight_layout()
-        fig.savefig(buffer, format='png')
-        plt.close()
-        buffer.seek(0)
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=buffer)
-        buffer.close()
-    conn.close()
+    if update.message.text == "temperatura":
+        valor = estadoPico.get("temperatura")
+        if valor is not None:
+            await update.message.reply_text(f"Temperatura actual: {valor}°C")
+        else:
+            await update.message.reply_text("No se ha recibido una medición de temperatura.")
+    elif update.message.text == "humedad":
+        valor = estadoPico.get("humedad")
+        if valor is not None:
+            await update.message.reply_text(f"Humedad actual: {valor}%")
+        else:
+            await update.message.reply_text("No se ha recibido una medición de humedad.")
 
 async def post_init(application: Application):
-    # Iniciamos el daemon de escucha MQTT
+    commands = [
+        ("start", "Iniciar"),
+        ("setpoint", "Cambiar temperatura destino"),
+        ("periodo", "Cambiar periodo de medicion"),
+        ("rele_on", "Activar relé"),
+        ("rele_off", "Desactivar relé"),
+        ("info", "Informacion del bot"),
+        ("estado", "Estado actual de las mediciones y configuraciones"),
+        ("ayuda", "Ayuda"),
+    ]
+    await application.bot.set_my_commands(commands)
+    
     asyncio.create_task(conexionMqtt())
 
 def main():
@@ -150,14 +173,12 @@ def main():
     application.add_handler(CommandHandler('periodo', periodo))
     application.add_handler(CommandHandler('rele_on', releOn))
     application.add_handler(CommandHandler('rele_off', releOff))
-    application.add_handler(CommandHandler('messi', messi))
-    application.add_handler(CommandHandler('acercade', acercade))
+    application.add_handler(CommandHandler('info', info))
+    application.add_handler(CommandHandler('estado', estado))
     application.add_handler(CommandHandler('ayuda', ayuda))
-
-    # Tus filtros existentes de mensajes de texto y regex
-    application.add_handler(MessageHandler(filters.Regex("^(temperatura|humedad)$"), medicion))
-    application.add_handler(MessageHandler(filters.Regex("^(gráfico temperatura|gráfico humedad)$"), graficos))
     application.add_handler(MessageHandler(filters.Regex("^(modoAuto|modoManual|destello)$"), modo))
+    application.add_handler(MessageHandler(filters.Regex("^(temperatura|humedad)$"), medicion))
+
 
     application.run_polling()
 
