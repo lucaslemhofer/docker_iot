@@ -1,4 +1,4 @@
-# Trabajo Práctico N°2 - Docker
+# Trabajo Práctico N°3 - Telegram Bot
 ## Autor: Lemhofer, Lucas Ezequiel
 ## FIO - UNaM
 ## Carrera: Ingeniería en Computación
