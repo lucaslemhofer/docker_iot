@@ -23,10 +23,8 @@ function loadTheme() {
   setTheme(savedTheme);
 }
 
-// Cargar tema al iniciar la página
 document.addEventListener('DOMContentLoaded', loadTheme);
 
-// Confirmación de eliminación
 const btnDelete= document.querySelectorAll('.btn-borrar');
 if(btnDelete) {
   const btnArray = Array.from(btnDelete);

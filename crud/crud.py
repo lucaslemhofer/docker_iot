@@ -31,6 +31,7 @@ def require_login(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 @app.route("/registrar", methods=["GET", "POST"])
 def registrar():
     """Registrar usuario"""
