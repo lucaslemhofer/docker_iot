@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <title>FLASK CRUD 1.6</title>
   <!-- <link rel="stylesheet" href="https://bootswatch.com/5/cosmo/bootstrap.min.css"> -->
-  <link rel="stylesheet" href="https://bootswatch.com/5/darkly/bootstrap.min.css">
+  <link id="themeLink" rel="stylesheet" href="https://bootswatch.com/5/flatly/bootstrap.min.css">
   {% with messages = get_flashed_messages() %} {% if messages %}
   {% for message in messages %}
   <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -18,8 +18,11 @@
     <div class="container-fluid">
       <a class="navbar-brand" href="#">CRUD</a>
       {% if session.get("user_id") %}
-      <div class="d-flex">
-        <div class="nav-item pe-3 pt-2">{{ session.get("user_id") }}</div>
+      <div class="d-flex align-items-center gap-3">
+        <div class="nav-item pt-2">{{ session.get("user_id") }}</div>
+        <button class="btn btn-outline-light" type="button" id="themeToggle" onclick="toggleTheme()">
+          Tema claro
+        </button>
         <a href="{{url_for('logout')}}" class="btn btn-secondary my-2 my-sm-0" type="submit">Salir</a>
       </div>
       {% endif %}
