@@ -4,6 +4,7 @@ import os, logging
 from functools import wraps
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
+import MySQLdb
 
 logging.basicConfig(format='%(asctime)s - CRUD - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -39,20 +40,31 @@ def registrar():
 
         # Ensure username was submitted
         if not request.form.get("usuario"):
-            return "el campo usuario es oblicatorio"
+            flash('el campo usuario es obligatorio')
+            return redirect(url_for('registrar'))
 
         # Ensure password was submitted
         elif not request.form.get("password"):
-            return "el campo contraseña es oblicatorio"
+            flash('el campo contraseña es obligatorio')
+            return redirect(url_for('registrar'))
 
-        passhash=generate_password_hash(request.form.get("password"), method='scrypt', salt_length=16)
-        cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO usuarios (usuario, hash) VALUES (%s,%s)", (request.form.get("usuario"), passhash[17:]))
-        if mysql.connection.affected_rows():
-            flash('Se agregó un usuario')  # usa sesión
-            logging.info("se agregó un usuario")
-        mysql.connection.commit()
-        return redirect(url_for('index'))
+        try:
+            passhash=generate_password_hash(request.form.get("password"), method='scrypt', salt_length=16)
+            cur = mysql.connection.cursor()
+            cur.execute("INSERT INTO usuarios (usuario, hash) VALUES (%s,%s)", (request.form.get("usuario"), passhash[17:]))
+            if mysql.connection.affected_rows():
+                flash('Se agregó un usuario')  # usa sesión
+                logging.info("se agregó un usuario")
+            mysql.connection.commit()
+            return redirect(url_for('login'))
+        except MySQLdb.IntegrityError:
+            flash('El usuario ya existe. Por favor, elige otro nombre de usuario')
+            logging.warning(f"Intento de registro con usuario duplicado: {request.form.get('usuario')}")
+            return redirect(url_for('registrar'))
+        except Exception as e:
+            flash('Error al registrar el usuario. Por favor, intenta de nuevo')
+            logging.error(f"Error al registrar usuario: {str(e)}")
+            return redirect(url_for('registrar'))
 
     return render_template('registrar.html')
 
@@ -145,4 +157,4 @@ def actualizar_contacto(id):
 def logout():
     session.clear()
     logging.info("el usuario {} cerró su sesión".format(session.get("user_id")))
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))

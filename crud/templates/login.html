@@ -6,5 +6,7 @@
         <button type="submit">Aceptar</button>
         <a href="{{url_for('registrar')}}" style="float: right;">Registrarse</a>
     </form>
- 
+    <script>
+        localStorage.removeItem('theme');
+    </script>
 {% endblock %}
