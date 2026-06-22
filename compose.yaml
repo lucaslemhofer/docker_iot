@@ -124,9 +124,30 @@ services:
       - MYSQL_HOST=${MARIADB_SERVER}
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
     ports:
-      - "8000:8000"
+      - 8000:8000
     restart: unless-stopped
     depends_on:
       - mariadb
+  control:
+    image: control
+    build:
+      context: ./control
+    container_name: control
+    environment:
+      - MYSQL_USER=control
+      - MYSQL_PASSWORD=iot2026
+      - MYSQL_DB=control
+      - MYSQL_HOST=${MARIADB_SERVER}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - SERVIDOR=${SERVIDOR}
+      - PUERTO_MQTTS=${PUERTO_MQTTS}
+      - MQTT_USR=${MQTT_USR}
+      - MQTT_PASS=${MQTT_PASS}
+    ports:
+      - 8001:5001
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+      - mosquitto
 volumes:
   portainer_data:

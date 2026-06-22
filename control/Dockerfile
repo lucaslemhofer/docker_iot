@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+RUN apt-get -y update
+RUN apt-get install python3-dev default-libmysqlclient-dev build-essential pkg-config -y
+
 ENV TZ="America/Argentina/Buenos_Aires"
 
 COPY ./requirements.txt /app/requirements.txt
@@ -10,4 +13,4 @@ RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
 
 COPY . /app
 
-CMD ["python", "/app/telegrambot.py"]
+CMD ["gunicorn", "-w", "4", "-b", ":5001", "control:app"]

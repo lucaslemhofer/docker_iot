@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="row mt-4">
+  <div class="col-md-5">
+    <div class="card mb-4">
+      <div class="card-header bg-primary text-white">Nodos Registrados</div>
+      <div class="card-body">
+        <form action="{{url_for('add_nodo')}}" method="POST" class="mb-4">
+          <div class="mb-2">
+            <input type="text" class="form-control" placeholder="Nombre del nodo" name="nombre" required>
+          </div>
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Ej: AA:BB:CC:DD:EE:FF" name="mac" required>
+            <button type="submit" class="btn btn-primary">Agregar</button>
+          </div>
+        </form>
+
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th scope="col">Nombre</th>
+              <th scope="col">Dirección MAC</th>
+              <th scope="col">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for nodo in nodos %}
+            <tr>
+              <td>{{ nodo.1 }}</td>
+              <td>{{ nodo.2 }}</td>
+              <td>
+                <a href="{{url_for('borrar_nodo', id=nodo.0)}}" class="btn btn-sm btn-danger">Borrar</a>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="2" class="text-center">No hay nodos registrados.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header bg-info text-white">Panel de Control MQTT</div>
+      <div class="card-body">
+        <form action="{{url_for('send_command')}}" method="POST">
+          <h5>1. Selecciona un Nodo de destino:</h5>
+          <div class="row g-2 mb-4">
+            {% for nodo in nodos %}
+            <div class="col-md-6">
+              <div class="form-check border p-2 rounded">
+                <input class="form-check-input ms-1 me-2 mt-1" type="radio" name="mac" id="mac_{{nodo.0}}" value="{{nodo.1}}" required>
+                <label class="form-check-label w-100" for="mac_{{nodo.0}}" style="cursor: pointer;">
+                  <strong>{{ nodo.1 }}</strong><br>
+                  <small>{{ nodo.2 }}</small>
+                </label>
+              </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+              <div class="alert alert-secondary">Debes registrar al menos un nodo primero.</div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <h5>2. Enviar Comando Destello:</h5>
+          <button type="submit" name="comando" value="destello" class="btn btn-warning mb-4 w-100" {% if not nodos %}disabled{% endif %}>
+            Enviar Destello
+          </button>
+
+          <hr>
+
+          <h5>3. Enviar Comando Setpoint:</h5>
+          <div class="input-group mb-3">
+            <input type="number" class="form-control" name="temperatura" placeholder="Ej. 25" step="0.1">
+            <button type="submit" name="comando" value="setpoint" class="btn btn-success" {% if not nodos %}disabled{% endif %}>
+              Enviar Setpoint
+            </button>
+          </div>
+          <small class="text-muted">Introduce la temperatura deseada antes de enviar el setpoint.</small>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
